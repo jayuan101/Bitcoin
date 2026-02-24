@@ -1,34 +1,58 @@
 pipeline {
-  agent any
-
-  environment {
-    SPARK_HOME  = "C:\\spark"
-    HADOOP_HOME = "C:\\hadoop"
-    JAVA_HOME   = "C:\\Program Files\\Zulu\\zulu-21"
-    TEMP        = "C:\\tmp\\spark"
-    TMP         = "C:\\tmp\\spark"
+  agent {
+    docker {
+      image 'bitnami/spark:latest'  // Has Spark + Python
+    }
+        PYTHON_ENV = ".venv"
   }
 
-  stages {
-    stage("Checkout") {
-      steps { checkout scm }
-    }
-    stage("Install") {
-      steps { bat "python -m pip install -r requirements.txt --quiet" }
-    }
-    stage("Run Bitcoin ETL") {
-      steps { bat "python bitcoin.py" }
-    }
-    stage("Archive Parquet") {
-      steps {
-        archiveArtifacts artifacts: "bronze/**,silver_outputs/**,gold/**",
-                         fingerprint: true
-      }
-    }
-  }
+    stages {
 
-  post {
-    success { echo "Pipeline succeeded!" }
-    failure  { echo "Pipeline failed - check logs" }
-  }
+        stage('Checkout') {
+            steps {
+                checkout scm
+            }
+        }
+
+        stage('Install') {
+            steps {
+                sh '''
+                  set -e
+                  python -m venv .venv
+                  . .venv/bin/activate
+                  pip install --upgrade pip
+                  pip install -r requirements.txt
+                '''
+            }
+        }
+
+        stage('Run Bitcoin ETL') {
+            steps {
+                sh '''
+                  set -e
+                  . ${PYTHON_ENV}/bin/activate
+                  python bitcoin_etl.py
+                '''
+            }
+        }
+
+        stage('Archive Parquet') {
+            steps {
+                archiveArtifacts artifacts: 'data/**/*.parquet', fingerprint: true
+            }
+        }
+    }
+
+    post {
+        success {
+            echo "Pipeline completed successfully"
+        }
+        failure {
+            echo "Pipeline failed - check logs"
+        }
+        always {
+            // Optional: clean up
+            // sh "rm -rf ${PYTHON_ENV}"
+        }
+    }
 }
