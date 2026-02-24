@@ -13,17 +13,18 @@ pipeline {
                 checkout scm
             }
         }
-        stage('Install') {
-            steps {
-                sh '''
-                    set -e
-                    python -m venv .venv
-                    . .venv/bin/activate
-                    pip install --upgrade pip
-                    pip install -r requirements.txt
-                '''
-            }
-        }
+        stastage('Install') {
+    steps {
+        sh '''
+          set -e
+          python -m venv .venv
+          . .venv/bin/activate
+          pip install --upgrade pip
+          pip install -r requirements.txt
+        '''
+    }
+}
+
         stage('Run Bitcoin ETL') {
             steps {
                 sh '''
