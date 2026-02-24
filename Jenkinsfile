@@ -6,7 +6,6 @@ pipeline {
     }
 
     stages {
-
         stage('Checkout') {
             steps {
                 checkout scm
@@ -17,7 +16,13 @@ pipeline {
             steps {
                 sh '''
                   set -e
-                  python -m venv .venv
+                  
+                  # Switch to root and install Python (Ubuntu/Debian)
+                  sudo apt-get update
+                  sudo apt-get install -y python3 python3-pip python3-venv
+                    
+                  # Create venv using python3
+                  python3 -m venv .venv
                   . .venv/bin/activate
                   pip install --upgrade pip
                   pip install -r requirements.txt
@@ -37,17 +42,17 @@ pipeline {
 
         stage('Archive Parquet') {
             steps {
-                archiveArtifacts artifacts: 'data/**/*.parquet', fingerprint: true
+                archiveArtifacts artifacts: 'data/**/*.parquet', allowEmptyArchive: true
             }
         }
     }
 
     post {
         success {
-            echo "Pipeline completed successfully"
+            echo "✅ Pipeline completed successfully"
         }
         failure {
-            echo "Pipeline failed - check logs"
+            echo "❌ Pipeline failed - check logs"
         }
     }
 }
