@@ -1,34 +1,51 @@
 pipeline {
-  agent any
+    agent {
+        docker {
+            image 'bitnami/spark:latest'
+        }
+    }
+    environment {
+        PYTHON_ENV = ".venv"
+    }
+    stages {
+        stage('Checkout') {
+            steps {
+                checkout scm
+            }
+        }
+        stastage('Install') {
+    steps {
+        sh '''
+          set -e
+          python -m venv .venv
+          . .venv/bin/activate
+          pip install --upgrade pip
+          pip install -r requirements.txt
+        '''
+    }
+}
 
-  environment {
-    SPARK_HOME  = "C:\\spark"
-    HADOOP_HOME = "C:\\hadoop"
-    JAVA_HOME   = "C:\\Program Files\\Zulu\\zulu-21"
-    TEMP        = "C:\\tmp\\spark"
-    TMP         = "C:\\tmp\\spark"
-  }
-
-  stages {
-    stage("Checkout") {
-      steps { checkout scm }
+        stage('Run Bitcoin ETL') {
+            steps {
+                sh '''
+                    set -e
+                    . .venv/bin/activate
+                    python bitcoin.py
+                '''
+            }
+        }
+        stage('Archive Parquet') {
+            steps {
+                archiveArtifacts artifacts: 'bronze/**,silver_outputs/**,gold/**', fingerprint: true
+            }
+        }
     }
-    stage("Install") {
-      steps { bat "python -m pip install -r requirements.txt --quiet" }
+    post {
+        success {
+            echo "Pipeline completed successfully"
+        }
+        failure {
+            echo "Pipeline failed - check logs"
+        }
     }
-    stage("Run Bitcoin ETL") {
-      steps { bat "python bitcoin.py" }
-    }
-    stage("Archive Parquet") {
-      steps {
-        archiveArtifacts artifacts: "bronze/**,silver_outputs/**,gold/**",
-                         fingerprint: true
-      }
-    }
-  }
-
-  post {
-    success { echo "Pipeline succeeded!" }
-    failure  { echo "Pipeline failed - check logs" }
-  }
 }
